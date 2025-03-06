@@ -34,6 +34,7 @@ var options = []option{
 	{"/exit", exitFunction},
 	{"/whoami", whoami},
 	{"/list", victimList},
+	{"^C", victimList},
 }
 
 // lists victims
@@ -80,7 +81,14 @@ func VictimById(c *gin.Context) {
 
 // menu banner
 func displayMenu() {
-	fmt.Println("This is the Menu but theres nothing :()")
+	fmt.Println("_______  _______  _______ _________ _______ _________ _        _______ _________ _______")
+	fmt.Println("(  ___  )(  ____ \\(  ____ \\__   __/(       )\\__   __/( \\      (  ___  )\\__   __/(  ____ \\")
+	fmt.Println("| (   ) || (    \\/| (    \\/   ) (   | () () |   ) (   | (      | (   ) |   ) (   | (    \\/")
+	fmt.Println("| (___) || (_____ | (_____    | |   | || || |   | |   | |      | (___) |   | |   | (__    ")
+	fmt.Println("|  ___  |(_____  )(_____  )   | |   | |(_)| |   | |   | |      |  ___  |   | |   |  __)   ")
+	fmt.Println("| (   ) |      ) |      ) |   | |   | |   | |   | |   | |      | (   ) |   | |   | (      ")
+	fmt.Println("| )   ( |/\\____) |/\\____) |___) (___| )   ( |___) (___| (____/\\| )   ( |   | |   | (____/\\")
+	fmt.Println("|/     \\|\\_______)\\_______)\\_______/|/     \\|\\_______/(_______/|/     \\|   )_(   (_______/")
 
 }
 
