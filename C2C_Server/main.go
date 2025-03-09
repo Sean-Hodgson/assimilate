@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,7 +33,11 @@ var victims = []victim{
 type option struct {
 	Cmd        string
 	ParamCount int //set the value to -1 if we do not care about the amount
-	Action     func()
+	Action     func(params ...interface{})
+	//in order to make this work, all functions that are in options have this as a parameter, but will be secure
+	//because we are checking that the amount of params to pass equals the amount we set, and since we are always
+	//passing in an array we must break that array apart in the function itself.
+	//We set this to be params ...interface{} so it can also work with empty calls
 }
 
 // edit later
@@ -42,7 +47,7 @@ var options = []option{
 	{"/exit", 0, exitFunction},
 	{"/whoami", 0, whoami},
 	{"/list", 0, victimList},
-	{"/floodping", 2, victimList},
+	{"/floodping", 2, floodping},
 	{"/supercat", 0, nil},
 	{"/writefile", 0, victimList},
 }
@@ -106,16 +111,27 @@ func displayMenu() {
 	time.Sleep(500 * time.Millisecond)
 }
 
-func floodping(ip int, port int) {
-	fmt.Println("Nothing yet but here is ip and port %d:%d", ip, port)
+func floodping(params ...interface{}) {
+	paramsForFloodPing, ok1 := params[0].([]string)
+	if !(ok1) {
+		return
+	}
+	ip := paramsForFloodPing[0]
+	port, err := strconv.Atoi(paramsForFloodPing[1])
+	if err != nil {
+		// Handle error if conversion fails
+		fmt.Println("Error converting string to int:", err)
+		return
+	}
+	fmt.Printf("Nothing yet but here is ip and port %s:%d\n", ip, port)
 }
 
 // prints when an invalid command is entered
-func genericHelp() {
+func genericHelp(params ...interface{}) {
 	fmt.Println("Invalid Command, use the /help command for details of all the commands")
 }
 
-func specificHelp() {
+func specificHelp(params ...interface{}) {
 	// Create a new table writer
 	table := tablewriter.NewWriter(os.Stdout)
 
@@ -144,12 +160,12 @@ func specificHelp() {
 }
 
 // just filler command
-func whoami() {
+func whoami(params ...interface{}) {
 	fmt.Println("This is just filler, but I'm Steve from minecraft")
 }
 
 // Displays vicitim list
-func victimList() {
+func victimList(params ...interface{}) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"ID", "IP", "User", "Port"})
 	for _, v := range victims {
@@ -159,7 +175,7 @@ func victimList() {
 }
 
 // exits the program
-func exitFunction() {
+func exitFunction(params ...interface{}) {
 	exitStr := "Goodbye\n"
 	for i := 0; i < len(exitStr); i++ {
 		fmt.Print(string(exitStr[i]))
@@ -195,7 +211,8 @@ func Handler() {
 		//enter only if command is a real command
 		if b.Cmd == command {
 			if hasParamCount(cap(commandParamList), b.ParamCount) {
-				b.Action()
+				//pass all command parameters (of any size)
+				b.Action(commandParamList)
 				return
 			}
 		}
@@ -227,7 +244,7 @@ func init() {
 	}
 }
 
-func CallClear() {
+func CallClear(params ...interface{}) {
 	value, ok := clear[runtime.GOOS] //runtime.GOOS -> linux, windows, darwin etc.
 	if ok {                          //if we defined a clear func for that platform:
 		value() //we execute it
