@@ -149,7 +149,7 @@ func specificHelp(params ...interface{}) {
 	table.Append([]string{"", "", ""})
 	table.Append([]string{"/list", "None", "Lists all victims currently infected"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/floodping", "TBD", "does something i think"})
+	table.Append([]string{"/floodping", "IP, Port", "does something i think"})
 	table.Append([]string{"", "", ""})
 	table.Append([]string{"/supercat", "TBD", "something else haha"})
 	table.Append([]string{"", "", ""})
