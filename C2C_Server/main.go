@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,20 +30,21 @@ var victims = []victim{
 }
 
 type option struct {
-	Cmd    string
-	Action func()
+	Cmd        string
+	ParamCount int //set the value to -1 if we do not care about the amount
+	Action     func()
 }
 
 // edit later
 var options = []option{
-	{"/help", specificHelp},
-	{"/clear", CallClear},
-	{"/exit", exitFunction},
-	{"/whoami", whoami},
-	{"/list", victimList},
-	{"/floodping", victimList},
-	{"/supercat", victimList},
-	{"/writefile", victimList},
+	{"/help", 0, specificHelp},
+	{"/clear", 0, CallClear},
+	{"/exit", 0, exitFunction},
+	{"/whoami", 0, whoami},
+	{"/list", 0, victimList},
+	{"/floodping", 2, victimList},
+	{"/supercat", 0, nil},
+	{"/writefile", 0, victimList},
 }
 
 // lists victims
@@ -103,6 +106,10 @@ func displayMenu() {
 	time.Sleep(500 * time.Millisecond)
 }
 
+func floodping(ip int, port int) {
+	fmt.Println("Nothing yet but here is ip and port %d:%d", ip, port)
+}
+
 // prints when an invalid command is entered
 func genericHelp() {
 	fmt.Println("Invalid Command, use the /help command for details of all the commands")
@@ -143,9 +150,12 @@ func whoami() {
 
 // Displays vicitim list
 func victimList() {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"ID", "IP", "User", "Port"})
 	for _, v := range victims {
-		fmt.Printf("ID: %s | IP: %s | User: %s | Port: %s\n", v.ID, v.Ip, v.User, v.Port)
+		table.Append([]string{v.ID, v.Ip, v.User, v.Port})
 	}
+	table.Render()
 }
 
 // exits the program
@@ -153,7 +163,7 @@ func exitFunction() {
 	exitStr := "Goodbye\n"
 	for i := 0; i < len(exitStr); i++ {
 		fmt.Print(string(exitStr[i]))
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	os.Exit(0)
 	//return 1
@@ -163,18 +173,41 @@ func exitFunction() {
 func Handler() {
 
 	var command string
+	var commandParamList []string
 	fmt.Print(("(C2C)> "))
-	fmt.Scanln(&command)
+	// Create a new scanner to read from standard input
+	scanner := bufio.NewScanner(os.Stdin)
+	// Read the user input
+	scanner.Scan()
+	userInput := scanner.Text()
+	//finds the end of the initial command
+	spaceIndex := strings.Index(userInput, " ")
+	if spaceIndex == -1 {
+		command = userInput
+	} else {
+		//the command
+		command = userInput[:spaceIndex]
+		commandParams := userInput[spaceIndex+1:]
+		//all the subsequent parameters
+		commandParamList = strings.Fields(commandParams)
+	}
 	for _, b := range options {
+		//enter only if command is a real command
 		if b.Cmd == command {
-			b.Action()
-			return
+			if hasParamCount(cap(commandParamList), b.ParamCount) {
+				b.Action()
+				return
+			}
 		}
 	}
 
 	//provide the user a default help for entering commands
 	genericHelp()
 
+}
+
+func hasParamCount(count int, target int) bool {
+	return count == target
 }
 
 // code snippet taken from https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
