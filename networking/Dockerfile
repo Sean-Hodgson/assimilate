@@ -1,3 +1,6 @@
+#author: justin Van Der Sluys
+#summary: dockerfile for the proxy
+
 FROM  ubuntu:latest
 
 #ENV vars
@@ -13,6 +16,7 @@ RUN apt update && \
     net-tools \
     git \
     golang-go \
+    supervisor \
     tor && \
     apt upgrade -y
 
@@ -21,6 +25,7 @@ WORKDIR /app
 
 #copy files into container
 COPY torrc /etc/tor/torrc
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # ORPort (for outbound connections to other Tor nodes)
 EXPOSE 9001
@@ -28,5 +33,5 @@ EXPOSE 9001
 EXPOSE 9051
 
 #insertion point
-CMD ["tail", "-f", "/dev/null"]
+CMD ["/usr/bin/supervisord"]
 

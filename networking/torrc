@@ -1,3 +1,6 @@
+#programmed by Justin Van Der Sluys 3/10/2025
+#keep this file in this directory this will be copied into the dockerfile at build time
+
  #local socks5 proxy
 SocksPort 127.0.0.1:9050
 

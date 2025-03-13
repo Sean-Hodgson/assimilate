@@ -7,6 +7,11 @@ PORTS := -p 9051:9051 -p 9001:9001
 
 build:
 	docker build -t $(IMAGE_NAME) .
+	
+rebuild:
+	$(MAKE) stopremove || true
+	$(MAKE) rmi || true
+	$(MAKE) build || true
 
 #interactive
 test:
@@ -16,15 +21,15 @@ test:
 deploy:
 	docker run -d --rm --name $(CONTAINER_NAME_DEPLOY) $(PORTS) $(IMAGE_NAME)
 
+# Reload and remove
+stopremove:
+	$(MAKE) stop
+	$(MAKE) rm
+
 # Stop the container
 stop:
 	docker stop $(CONTAINER_NAME_DEPLOY) || true
 	docker stop $(CONTAINER_NAME_TEST) ||
-
-# Reload containers
-reload:
-	$(MAKE) stop
-	$(MAKE) rm
 
 # Remove the container
 rm:
@@ -35,7 +40,7 @@ rm:
 rmi:
 	docker rmi $(IMAGE_NAME)
 
-# List all containers (running and stopped)
+# List all containers 
 ps:
 	docker ps -a
 
@@ -46,6 +51,7 @@ logtest:
 logdeploy:
 	docker logs $(CONTAINER_NAME_DEPLOY)
 
+#dont use this unless you know what you are doing
 # Remove all stopped containers
 cleancontainers:
 	docker container prune -f
