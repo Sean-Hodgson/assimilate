@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	rbt "github.com/emirpasic/gods/trees/redblacktree"
 	"io"
 	"log"
 	"net/http"
@@ -13,13 +14,11 @@ import (
 func main() {
 
 	//setup variables
-
-	// CNCConf := CNCConf()
-	// ClientConf := ClientConf()
+	//ProxyDSSetup := ProxyDSSetup()
 
 	//start the CNC Hanlder
-	go CNCHanlder()
+	go CNCHandler()
 
 	//start the client handler
-	go clientHanlder()
+	go clientHandler()
 }
