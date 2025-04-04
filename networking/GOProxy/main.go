@@ -5,14 +5,6 @@ import (
 	"time"
 )
 
-type CNCFuncSetup struct {
-	timeout    time.Duration
-	retryCount int
-	retryDelay time.Duration
-	port       int
-	targetHost string
-}
-
 type ClientFuncSetup struct {
 	timeout time.Duration
 	port    int
@@ -34,8 +26,8 @@ func main() {
 	//start the CNC Handler
 	inputParamsCNC := CNCFuncSetup{
 		timeout:    10000,
-		retryCount: 5,
-		retryDelay: 10 * time.Millisecond,
+		retryCount: 1000,
+		retryDelay: 1000 * time.Millisecond,
 		port:       7884,
 		targetHost: "127.0.0.1",
 	}
