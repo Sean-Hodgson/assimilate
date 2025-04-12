@@ -119,6 +119,20 @@ func CallClear(params ...interface{}) {
 
 func printlNDebug(input string){
 	if(globalDEBUG){
-		println( "DEBUG:" + input)
+		println( "DEBUG::" + input)
 	}
+}
+
+//FREDY implement this given a incoming string 
+/* SHOULD BE JSON OF THIS FORM USE UNMARSHALL
+type IncomingClientRegistration struct {
+	Hash string
+	//other stuff not in here now
+
+}
+*/
+func registerNewClient(incomingJson string){
+	
+    err := json.Unmarshal([]byte(incomingJson), &client)
+
 }
