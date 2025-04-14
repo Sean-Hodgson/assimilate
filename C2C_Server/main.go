@@ -7,6 +7,7 @@ import (
 	//"encoding/json"
 	"os"
 	"os/exec"
+
 	//"path/filepath"
 	//"runtime"
 	//"strings"
@@ -15,14 +16,14 @@ import (
 )
 
 // Edit later
-type comData struct {
-	Cmd  string `json:"cmd"`
-	Data string `json:"data"`
-}
+// type comData struct {
+// 	Cmd  string `json:"cmd"`
+// 	Data string `json:"data"`
+// }
 
 var globalDEBUG = true
 
-const proxyURL = "http://localhost:8888/proxy"
+//nst proxyURL = "http://localhost:8888/proxy"
 
 type option struct {
 	Cmd        string
@@ -33,7 +34,6 @@ type option struct {
 	//passing in an array we must break that array apart in the function itself.
 	//We set this to be params ...interface{} so it can also work with empty calls
 }
-
 
 func init() {
 	clear = make(map[string]func()) //Initialize it
@@ -48,7 +48,6 @@ func init() {
 		cmd.Run()
 	}
 }
-
 
 // runs in a goroutine
 func startMenu() {
