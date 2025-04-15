@@ -175,3 +175,19 @@ func AddCommandToVictim(hash string, command VictimCommand) {
 		fmt.Println("Victim not found:", hash)
 	}
 }
+
+
+
+func SeparateJsonDesignator(incoming string) (designator string, separatedJson string, err error){
+
+	substrings := strings.SplitN(incoming, "{", 1)
+	
+	if len(substrings) < 2 {
+		return "", "", fmt.Errorf("invalid format, missing `{`")
+	}
+
+	designator = strings.TrimSpace(substrings[0])
+	separatedJson = "{" + substrings[1] // add the `{` back
+
+	return designator, separatedJson, nil
+}
