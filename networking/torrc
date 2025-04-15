@@ -1,0 +1,16 @@
+#programmed by Justin Van Der Sluys 3/10/2025
+#keep this file in this directory this will be copied into the dockerfile at build time
+
+ #local socks5 proxy
+SocksPort 127.0.0.1:9050
+
+# ORPort for external node connection
+ORPort 0.0.0.0:9001
+
+# Ctrl port for controlling the ports
+ControlPort 127.0.0.1:9051
+
+#uncomment these for hidden services
+# HiddenServiceDir /var/lib/tor/hidden_service/
+# HiddenServicePort 80 127.0.0.1:8080
+

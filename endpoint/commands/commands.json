@@ -1,0 +1,12 @@
+{
+    "ping": {
+        "windows": { "cmd": "ping", "flags": { "count": "-n", "size": "-l", "timeout": "-w" } },
+        "linux": { "cmd": "ping", "flags": { "count": "-c", "size": "-s", "timeout": "-W" } },
+        "darwin": { "cmd": "ping", "flags": { "count": "-c", "size": "-s", "timeout": "-W" } }
+    },
+    "list": {
+        "windows": { "cmd": "dir", "flags": { "hidden": "/A:H", "wide": "/W" } },
+        "linux": { "cmd": "ls", "flags": { "all": "-a", "long": "-l", "human": "-h" } },
+        "darwin": { "cmd": "ls", "flags": { "all": "-a", "long": "-l", "human": "-h" } }
+    }
+}
