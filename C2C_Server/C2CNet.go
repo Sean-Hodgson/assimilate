@@ -168,6 +168,7 @@ func HandleIncomingRequest(incomingJson string) (toreturn string){
 
 		toSend, _ := json.Marshal(poppedCommand)
 		println(toSend)
+		toSend = []byte("requestCommand/json" + string(toSend))
 		return string(toSend)
 
 	}else {

