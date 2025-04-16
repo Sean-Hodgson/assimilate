@@ -13,14 +13,16 @@ import (
 
 
 var (
-	cncPort      = flag.Int("socks5port", 9050, "port for the local socks5 proxy")
-	servingPort  = flag.Int("ingressport", 5555, "ingress port for visitors")
-	remotePort   = flag.Int("remoteport", 7777, "remote port for the .onion service")
-	onionDomain  = flag.String("onion", "azgbvwd2j47yqsli5tdwbhms2cmswttdmj7xk5bwipoqmstwc33j63yd.onion", "onion domain name to access")
+	cncPort      	= flag.Int("socks5port", 9050, "port for the local socks5 proxy")
+	servingPort  	= flag.Int("ingressport", 5555, "ingress port for visitors")
+	remotePort   	= flag.Int("remoteport", 7777, "remote port for the .onion service")
+	onionDomain  	= flag.String("onion", "azgbvwd2j47yqsli5tdwbhms2cmswttdmj7xk5bwipoqmstwc33j63yd.onion", "onion domain name to access")
+	nonTorNextHop	= flag.String("nonTorAddr", "127.0.0.1", "non tor remote host to access")
+	torMode 	 	= flag.Bool("torMode", false, "what operation mode will be requested")
 )
 
 
-func ProxyHandler(w http.ResponseWriter, r *http.Request) {
+func ProxyHandlerTor(w http.ResponseWriter, r *http.Request) {
 	println("successfully received message")
 	defer r.Body.Close()
 
@@ -29,7 +31,6 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		println("ERROR:ProxyHandler failed to get http request")
 		return
 	}
-
 
 	// SOCKS5 proxy setup
 	dialer, err := proxy.SOCKS5("tcp", "127.0.0.1:9050", nil, proxy.Direct)
@@ -68,20 +69,61 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
+func ProxyHandler(w http.ResponseWriter, r *http.Request) {
+	println("successfully received message")
+	defer r.Body.Close()
+
+	fullyQualifiedTarget := ("http://" + *nonTorNextHop + ":" + strconv.Itoa(*remotePort) + r.RequestURI)
+	println(fullyQualifiedTarget)
+
+	//copy the original request and get a new variable to send to the remote host
+	proxyReq, err := http.NewRequest(r.Method, fullyQualifiedTarget, r.Body)
+	if(err != nil){
+		println("ERROR:ProxyHandler failed to get http request")
+		return
+	}
+	proxyReq.Header = r.Header
+
+	//send new request onward
+	resp, err := http.DefaultClient.Do(proxyReq)
+    if err != nil {
+		println(resp)
+        http.Error(w, "Upstream error", http.StatusBadGateway)
+        return
+    }
+    defer resp.Body.Close()
+
+	io.Copy(w, resp.Body)
+}
+
+
 
 func main() {
 	println("Starting main")
+
+	// Parse the flag
 	flag.Parse()
+
 	*onionDomain = (*onionDomain+ ":" + strconv.Itoa(*remotePort))
 
-	// Parse the flags
-	
-	http.HandleFunc("/proxy", ProxyHandler)
-	fmt.Println("Serving on port", *servingPort, "going towards socks5 localproxy:127.0.0.1:", *cncPort,  "sending to .onion address: ", *onionDomain)
-	
-	err := http.ListenAndServe((":" + strconv.Itoa(*servingPort)), nil)
-	if err != nil {
-		fmt.Println("Error starting server:", err)
+	if(*torMode){
+		//if the operation mode is set to tor use this
+		http.HandleFunc("/proxy", ProxyHandlerTor)
+		fmt.Println("Serving on port", *servingPort, "going towards socks5 localproxy:127.0.0.1:", *cncPort,  "sending to .onion address: ", *onionDomain)
+		
+		err := http.ListenAndServe((":" + strconv.Itoa(*servingPort)), nil)
+		if err != nil {
+			fmt.Println("Error starting server:", err)
+		}
+	}else{
+		//if the operation mode is set to not use proxy chains use this
+		http.HandleFunc("/proxy", ProxyHandler)
+		fmt.Println("Serving on port", *servingPort, "going towards", *nonTorNextHop, ":", *remotePort)
+		
+		err := http.ListenAndServe((":" + strconv.Itoa(*servingPort)), nil)
+		if err != nil {
+			fmt.Println("Error starting server:", err)
+		}
 	}
 }
 
