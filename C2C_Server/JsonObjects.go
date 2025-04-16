@@ -39,4 +39,10 @@ type AssimilateResponse struct {
 	ResponseCode   int
 }
 
+type VictimOutputFlow struct {
+	HardwareHash 	 string //who is making this request
+	GenerationSource string
+	Data 		 	 string
+}
+
 
