@@ -1,29 +1,11 @@
 package main
 
 import (
-	//"bufio"
-	//"bytes"
-	//"encoding/base64"
-	//"encoding/json"
 	"os"
 	"os/exec"
-
-	//"path/filepath"
-	//"runtime"
-	//"strings"
 	"time"
-	//"github.com/olekukonko/tablewriter"
 )
 
-// Edit later
-// type comData struct {
-// 	Cmd  string `json:"cmd"`
-// 	Data string `json:"data"`
-// }
-
-var globalDEBUG = true
-
-//nst proxyURL = "http://localhost:8888/proxy"
 
 type option struct {
 	Cmd        string
@@ -59,14 +41,12 @@ func startMenu() {
 
 func main() {
 	//	Start of the menu func
+	displayMenu() //display the menu before the start here
 	go startMenu()
 
 	//	start of the server func
 	go startServer()
 
-	displayMenu()
-
-	//	Makes it so the server and
-	// 	menu run concurrently together
+	
 	select {}
 }

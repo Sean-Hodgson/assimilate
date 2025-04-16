@@ -1,18 +1,14 @@
 package main
 
 import (
-	//"bytes"
 	"encoding/base64"
-	//"encoding/json"
 	"fmt"
-	//"net/http"
 	"os"
 	"path/filepath"
-	"sync"
+	
 	"time"
 )
 
-var clientTreeMutex sync.Mutex
 
 // edit later
 var options = []option{

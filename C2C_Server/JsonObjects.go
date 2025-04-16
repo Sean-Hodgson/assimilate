@@ -1,30 +1,16 @@
 package main
 
-//"bufio"
-//"bytes"
-//"encoding/base64"
-//"encoding/json"
-//"fmt"
-//"io"
-//"net/http"
-//"path/filepath"
-//"runtime"
-//"strings"
-//"github.com/olekukonko/tablewriter"
-
-//put json formats of messages here
-
-// type IncomingClientDataPacket struct {
-// 	FromHash        string //who was this from?
-// 	GeneratorSource string //what generated this data
-// 	Data            string //dump of the data
-// 	//other stuff as needed
-
-// }
+/*
+case "response/json"       paired with ResponseCode
+case "victimregister/json" paired with VictimRegister
+case "requestCommand/json" paired with IncomingVictimRequest struct
+case "incomingData/json"   paired with incoming superCat data
+*/
 
 type VictimInfo struct {
-	Hash     string
-	Commands []VictimCommand
+	Commands     		[]VictimCommand
+	VictimInfo   		VictimRegister
+	VictimConsoleOutput []string 
 }
 
 // storage structure for victim commands
@@ -41,6 +27,16 @@ type IncomingSuperCatData struct {
 	Hash     string
 	Filename string
 	Content  string // base64 or raw content
+}
+
+type VictimRegister struct {
+	HardwareHash    string
+	OperatingSystem string
+}
+
+type AssimilateResponse struct {
+	ResponseString string
+	ResponseCode   int
 }
 
 
