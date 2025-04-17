@@ -2,19 +2,16 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 	"strings"
 	"time"
-
-	rbt "github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/olekukonko/tablewriter"
 )
 
-// Setup for Red and Black Tree
-var clientTree = rbt.NewWithStringComparator()
+
+
 
 // menu banner
 func displayMenu() {
@@ -123,55 +120,17 @@ func CallClear(params ...interface{}) {
 	}
 }
 
-func printlNDebug(input string) {
-	if globalDEBUG {
-		println("DEBUG::" + input)
-	}
-}
 
-//FREDY implement this given a incoming string
-/* SHOULD BE JSON OF THIS FORM USE UNMARSHALL
-type IncomingClientRegistration struct {
-	Hash string
-	//other stuff not in here now
+func SeparateJsonDesignator(incoming string) (designator string, separatedJson string, err error){
 
-}
-*/
-func registerNewClient(incomingJson string) {
-
-	var client IncomingVictimRequest
-
-	err := json.Unmarshal([]byte(incomingJson), &client)
-	if err != nil {
-		fmt.Println("Failed to parse client registration JSON:", err)
-		return
+	substrings := strings.SplitN(incoming, "{", 2)
+	
+	if len(substrings) < 2 {
+		return "", "", fmt.Errorf("invalid format, missing `{`")
 	}
 
-	clientTreeMutex.Lock()
-	defer clientTreeMutex.Unlock()
-	// in case if client already exists
-	if _, exists := clientTree.Get(client.RequesterHash); !exists {
-		victim := VictimInfo{
-			Hash:     client.RequesterHash,
-			Commands: []VictimCommand{},
-		}
-		clientTree.Put(client.RequesterHash, victim)
-		fmt.Println("Registered new client with hash:", client.RequesterHash)
-	}
+	designator = strings.TrimSpace(substrings[0])
+	separatedJson = "{" + substrings[1] // add the `{` back
 
-}
-
-func AddCommandToVictim(hash string, command VictimCommand) {
-	clientTreeMutex.Lock()
-	defer clientTreeMutex.Unlock()
-
-	val, found := clientTree.Get(hash)
-	if found {
-		victim := val.(VictimInfo)
-		victim.Commands = append(victim.Commands, command)
-		clientTree.Put(hash, victim)
-		fmt.Println("Added command to victim:", hash)
-	} else {
-		fmt.Println("Victim not found:", hash)
-	}
+	return designator, separatedJson, nil
 }
