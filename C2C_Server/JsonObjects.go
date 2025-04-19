@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 /*
 case "response/json"       paired with ResponseCode
 case "victimregister/json" paired with VictimRegister
@@ -10,7 +12,9 @@ case "incomingData/json"   paired with incoming superCat data
 type VictimInfo struct {
 	Commands     		[]VictimCommand
 	VictimInfo   		VictimRegister
-	VictimConsoleOutput []string 
+	VictimConsoleOutput []string
+	CreatedTime			time.Time //initialize this with this now := time.Now()
+	LastSeen			time.Time //time of last contact use now := time.Now()
 }
 
 // storage structure for victim commands

